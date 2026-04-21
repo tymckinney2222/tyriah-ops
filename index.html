@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0514">
+<title>Studio Ops · Tyriah App Studios</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- SheetJS (xlsx library) for Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ═════════════════════════════════════════════════════════════
+   TYRIAH APP STUDIOS — STUDIO OPS DASHBOARD
+   Internal tool for Ty. Matches studio brand aesthetic:
+   deep purple-black, serif headlines, terminal-mono accents.
+   ═════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #0a0514;
+  --bg2: #140826;
+  --card: #1a0f2e;
+  --card-hover: #221438;
+  --border: #2a1a45;
+  --border-lt: #3b2560;
+  --primary: #6d28d9;
+  --primary-dim: #4c1d95;
+  --accent: #a855f7;
+  --text: #f3f0ff;
+  --text2: #c9bfe0;
+  --text3: #8b7aad;
+  --muted: #6b5b7f;
+  --green: #4ade80;
+  --green-dim: rgba(74,222,128,0.15);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.15);
+  --amber: #fbbf24;
+  --amber-dim: rgba(251,191,36,0.15);
+  --serif: 'Playfair Display', serif;
+  --sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14.5px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Ambient purple glow background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(124,58,237,0.15), transparent 40%),
+    radial-gradient(circle at 80% 90%, rgba(168,85,247,0.08), transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app { position: relative; z-index: 1; max-width: 820px; margin: 0 auto; padding: 0 16px 80px; }
+
+/* ── HEADER ── */
+.hdr {
+  padding: 22px 4px 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.hdr-brand { display: flex; align-items: center; gap: 12px; }
+.hdr-icon {
+  width: 44px; height: 44px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(124,58,237,0.35));
+}
+.hdr-wordmark { display: flex; flex-direction: column; gap: 2px; }
+.hdr-logo {
+  font-family: var(--serif); font-size: 24px; font-weight: 700;
+  font-style: italic; color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.hdr-title {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500;
+  color: var(--text3); letter-spacing: 0.2em; text-transform: uppercase;
+}
+.hdr-date {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  text-align: right;
+}
+
+/* ── TAB BAR ── */
+.tabs {
+  display: flex; gap: 4px; overflow-x: auto; margin-bottom: 20px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text3);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 999px; cursor: pointer;
+  transition: all 0.15s;
+}
+.tab:hover { color: var(--text2); border-color: var(--border-lt); }
+.tab.active {
+  color: var(--text); background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(124,58,237,0.15);
+}
+
+.pane { display: none; animation: fadeIn 0.25s ease; }
+.pane.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 18px;
+  margin-bottom: 14px;
+}
+.card-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-family: var(--serif); font-size: 18px; font-weight: 600;
+  color: var(--text); letter-spacing: -0.01em;
+}
+.card-label {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+  color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase;
+}
+
+/* ── KPI GRID ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+.kpi {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 14px 16px;
+  position: relative; overflow: hidden;
+}
+.kpi::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(124,58,237,0.04) 100%);
+  pointer-events: none;
+}
+.kpi-label {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  color: var(--muted); letter-spacing: 0.16em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.kpi-value {
+  font-family: var(--serif); font-size: 26px; font-weight: 700;
+  line-height: 1.1; letter-spacing: -0.02em;
+  color: var(--text);
+}
+.kpi-value.green { color: var(--green); }
+.kpi-value.red { color: var(--red); }
+.kpi-value.amber { color: var(--amber); }
+.kpi-sub {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  margin-top: 4px;
+}
+
+/* ── DATA TABLE / ROWS ── */
+.row {
+  display: grid; grid-template-columns: 1fr auto; gap: 8px;
+  padding: 12px 4px; border-bottom: 1px solid var(--border);
+  align-items: start;
+}
+.row:last-child { border-bottom: none; }
+.row-main { min-width: 0; }
+.row-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+.row-meta {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  letter-spacing: 0.05em;
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.row-amount {
+  font-family: var(--mono); font-size: 14px; font-weight: 600;
+  white-space: nowrap; text-align: right;
+}
+.row-amount.green { color: var(--green); }
+.row-amount.red { color: var(--red); }
+.row-tag {
+  display: inline-block; padding: 1px 6px;
+  font-family: var(--mono); font-size: 9px; font-weight: 500;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text3);
+}
+.row-tag.app { border-color: var(--primary-dim); color: var(--accent); }
+
+/* ── EMPTY STATE ── */
+.empty {
+  text-align: center; padding: 36px 18px; color: var(--muted);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+}
+.empty-icon { font-size: 24px; margin-bottom: 8px; opacity: 0.5; }
+
+/* ── BUTTONS ── */
+.btn {
+  font-family: var(--sans); font-size: 13px; font-weight: 600;
+  padding: 10px 18px; border-radius: 999px; border: none;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.btn-primary {
+  background: var(--primary); color: #fff;
+  box-shadow: 0 2px 12px rgba(124,58,237,0.35);
+}
+.btn-primary:hover { background: var(--accent); transform: translateY(-1px); }
+.btn-ghost {
+  background: transparent; color: var(--text2);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--border-lt); color: var(--text); }
+.btn-danger {
+  background: transparent; color: var(--red);
+  border: 1px solid rgba(248,113,113,0.3);
+}
+.btn-danger:hover { background: var(--red-dim); }
+.btn-sm { font-size: 11px; padding: 6px 12px; }
+.btn-full { width: 100%; }
+.btn-icon {
+  background: transparent; border: none; color: var(--text3);
+  font-size: 18px; cursor: pointer; padding: 4px 8px;
+  transition: color 0.15s;
+}
+.btn-icon:hover { color: var(--text); }
+
+.action-bar {
+  display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+}
+
+/* ── FILTERS ── */
+.filter-bar {
+  display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
+  scrollbar-width: none; padding-bottom: 4px;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-chip {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text3);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 999px; cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-chip:hover { color: var(--text2); border-color: var(--border-lt); }
+.filter-chip.active {
+  color: var(--text); background: var(--bg2);
+  border-color: var(--primary);
+}
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(10,5,20,0.85);
+  z-index: 100; display: none;
+  align-items: flex-end; justify-content: center;
+  backdrop-filter: blur(6px);
+  animation: fadeIn 0.2s ease;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 600px;
+  max-height: 90vh; overflow-y: auto;
+  padding: 22px 18px 30px;
+  animation: slideUp 0.28s ease;
+}
+@media (min-width: 640px) {
+  .modal-overlay { align-items: center; }
+  .modal { border-radius: 20px; max-height: 85vh; }
+}
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.modal-hd {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 18px;
+}
+.modal-title {
+  font-family: var(--serif); font-size: 22px; font-weight: 700;
+  color: var(--text);
+}
+.modal-close {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text2); width: 30px; height: 30px;
+  border-radius: 50%; cursor: pointer;
+  font-size: 16px; line-height: 1;
+}
+
+.form-row { margin-bottom: 14px; }
+.form-row.double { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-lbl {
+  display: block;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  font-family: var(--sans); font-size: 14px;
+  color: var(--text);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--primary);
+}
+.form-textarea { resize: vertical; min-height: 60px; font-family: var(--sans); }
+.form-helper { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+.form-actions {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-top: 22px;
+}
+
+/* ── CHARTS ── */
+.chart-wrap { position: relative; padding: 4px 0; }
+.chart-legend {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-top: 12px; justify-content: center;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; color: var(--text2);
+}
+.legend-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+
+.bar-chart { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; }
+.bar-label {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.bar-track {
+  height: 24px; background: var(--bg2); border-radius: 6px;
+  position: relative; overflow: hidden;
+}
+.bar-fill {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+.bar-fill.net-neg {
+  background: linear-gradient(90deg, var(--red), #fca5a5);
+}
+.bar-val {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--text2); min-width: 56px; text-align: right;
+}
+
+/* ── SETTINGS ── */
+.setting-row {
+  padding: 14px 0; border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-title {
+  font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px;
+}
+.setting-desc {
+  font-size: 12.5px; color: var(--text3); line-height: 1.45;
+  margin-bottom: 10px;
+}
+.list-editor {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px; margin-top: 8px;
+}
+.list-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 4px; border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 12px;
+}
+.list-item:last-child { border-bottom: none; }
+.list-add { display: flex; gap: 6px; margin-top: 10px; }
+.list-add .form-input { font-size: 13px; padding: 8px 10px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--primary); color: #fff;
+  padding: 10px 20px; border-radius: 999px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: 0 8px 24px rgba(124,58,237,0.45);
+  z-index: 200;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── API TAB STYLING ── */
+.api-status {
+  padding: 16px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--bg2);
+  margin-bottom: 14px;
+}
+.api-status.connected { border-color: var(--green); }
+.api-status.not-configured { border-color: var(--amber); }
+.api-status-title {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  margin-bottom: 6px; color: var(--text3);
+}
+.api-status-msg { font-size: 13px; color: var(--text2); line-height: 1.55; }
+
+.code-block {
+  font-family: var(--mono); font-size: 11.5px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+  color: var(--text2); overflow-x: auto;
+  margin: 8px 0;
+  white-space: pre;
+}
+
+/* ── Small helpers ── */
+.muted { color: var(--text3); }
+.right { text-align: right; }
+.mono { font-family: var(--mono); }
+.space-y-2 > * + * { margin-top: 8px; }
+.space-y-3 > * + * { margin-top: 12px; }
+.section-hd {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin: 22px 0 10px; padding: 0 4px;
+}
+.section-title {
+  font-family: var(--serif); font-size: 15px; font-weight: 600;
+  color: var(--text2); letter-spacing: -0.01em;
+}
+
+/* Responsive */
+@media (max-width: 400px) {
+  .hdr-logo { font-size: 22px; }
+  .kpi-value { font-size: 22px; }
+  .card { padding: 14px; }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <div class="hdr">
+    <div class="hdr-brand">
+      <img src="tyriah-logo.png" class="hdr-icon" alt="Tyriah App Studios" onerror="this.style.display='none'">
+      <div class="hdr-wordmark">
+        <div class="hdr-logo">Tyriah</div>
+        <div class="hdr-title">Studio Ops</div>
+      </div>
+    </div>
+    <div class="hdr-date" id="hdr-date"></div>
+  </div>
+
+  <!-- ═══════════ TABS ═══════════ -->
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="dashboard">⌕ Dashboard</button>
+    <button class="tab" data-tab="revenue">↑ Revenue</button>
+    <button class="tab" data-tab="expenses">↓ Expenses</button>
+    <button class="tab" data-tab="recurring">↻ Recurring</button>
+    <button class="tab" data-tab="api">◆ Claude API</button>
+    <button class="tab" data-tab="settings">⚙ Settings</button>
+  </div>
+
+  <!-- ═══════════ DASHBOARD PANE ═══════════ -->
+  <div class="pane active" id="pane-dashboard">
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">YTD Revenue</div>
+        <div class="kpi-value green" id="kpi-revenue">$0</div>
+        <div class="kpi-sub" id="kpi-revenue-sub">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">YTD Expenses</div>
+        <div class="kpi-value red" id="kpi-expenses">$0</div>
+        <div class="kpi-sub" id="kpi-expenses-sub">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Net Profit</div>
+        <div class="kpi-value" id="kpi-net">$0</div>
+        <div class="kpi-sub" id="kpi-net-sub">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Annual Recurring</div>
+        <div class="kpi-value amber" id="kpi-recurring">$0</div>
+        <div class="kpi-sub" id="kpi-recurring-sub">—</div>
+      </div>
+    </div>
+
+    <!-- Revenue by App donut -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Revenue by App</div>
+        <div class="card-label">YTD</div>
+      </div>
+      <div class="chart-wrap" id="chart-revenue-by-app"></div>
+    </div>
+
+    <!-- Monthly bars -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Monthly P&L</div>
+        <div class="card-label" id="chart-year-label">2026</div>
+      </div>
+      <div class="bar-chart" id="chart-monthly"></div>
+    </div>
+
+    <!-- Per-app breakdown -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Per-App Breakdown</div>
+        <div class="card-label">YTD</div>
+      </div>
+      <div id="per-app-table"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ REVENUE PANE ═══════════ -->
+  <div class="pane" id="pane-revenue">
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="openRevenueForm()">+ Log Revenue</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV('revenue')">↓ CSV</button>
+    </div>
+    <div class="filter-bar" id="rev-filters"></div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Income Ledger</div>
+        <div class="card-label mono" id="rev-count">0 entries</div>
+      </div>
+      <div id="rev-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ EXPENSES PANE ═══════════ -->
+  <div class="pane" id="pane-expenses">
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="openExpenseForm()">+ Log Expense</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV('expenses')">↓ CSV</button>
+    </div>
+    <div class="filter-bar" id="exp-filters"></div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Expense Ledger</div>
+        <div class="card-label mono" id="exp-count">0 entries</div>
+      </div>
+      <div id="exp-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ RECURRING PANE ═══════════ -->
+  <div class="pane" id="pane-recurring">
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="openRecurringForm()">+ Add Subscription</button>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:1fr 1fr">
+      <div class="kpi">
+        <div class="kpi-label">Active Annual Cost</div>
+        <div class="kpi-value amber" id="rec-annual">$0</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Monthly Run-Rate</div>
+        <div class="kpi-value" id="rec-monthly">$0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Subscriptions</div>
+        <div class="card-label mono" id="rec-count">0 entries</div>
+      </div>
+      <div id="rec-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ CLAUDE API PANE ═══════════ -->
+  <div class="pane" id="pane-api">
+    <div class="api-status not-configured" id="api-status">
+      <div class="api-status-title">◆ Claude API Integration</div>
+      <div class="api-status-msg" id="api-status-msg">Not connected. Configure your Worker URL below to pull live token usage.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Live Usage</div>
+        <div class="card-label" id="api-live-label">—</div>
+      </div>
+      <div id="api-usage-display" class="empty">
+        <div class="empty-icon">◆</div>
+        <div>Configure Worker URL to see live data</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Setup Guide</div>
+      </div>
+      <div class="space-y-3" style="font-size:13px;color:var(--text2);line-height:1.6">
+        <p>This dashboard can pull live Claude API usage data from a Cloudflare Worker that securely queries Anthropic's Usage API on your behalf. Here's the architecture:</p>
+
+        <div class="code-block">Phone PWA  →  Your Cloudflare Worker  →  Anthropic Usage API
+                      ↑
+                Admin API key stored
+                as Worker secret</div>
+
+        <p style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase">Steps:</p>
+        <ol style="margin-left:18px;font-size:13px">
+          <li style="margin-bottom:6px">Generate an Admin API key in the Anthropic Console (Settings → API Keys → Admin)</li>
+          <li style="margin-bottom:6px">Create a new Cloudflare Worker (e.g. <span class="mono">anthropic-usage-proxy</span>)</li>
+          <li style="margin-bottom:6px">Store the admin key as a Worker secret: <span class="mono">ANTHROPIC_ADMIN_KEY</span></li>
+          <li style="margin-bottom:6px">Have the Worker expose <span class="mono">GET /usage</span> returning today's cost and token totals</li>
+          <li style="margin-bottom:6px">Paste the Worker URL below</li>
+        </ol>
+
+        <p style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase">Expected response shape:</p>
+        <div class="code-block">{
+  "date": "2026-04-21",
+  "tokens_in": 12345,
+  "tokens_out": 4321,
+  "cost_usd": 0.12,
+  "month_cost_usd": 4.56,
+  "credits_remaining_usd": 95.44
+}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Worker Configuration</div>
+      </div>
+      <div class="form-row">
+        <label class="form-lbl">Worker URL</label>
+        <input type="url" class="form-input" id="api-worker-url" placeholder="https://anthropic-usage-proxy.yourname.workers.dev">
+        <div class="form-helper">The endpoint that returns the JSON above. Leave blank to disable.</div>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-primary btn-full" onclick="saveWorkerUrl()">Save &amp; Test</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SETTINGS PANE ═══════════ -->
+  <div class="pane" id="pane-settings">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Apps</div>
+      </div>
+      <div class="setting-desc">Apps that show up in dropdowns across the tracker. Edit freely.</div>
+      <div class="list-editor" id="apps-editor"></div>
+      <div class="list-add">
+        <input type="text" class="form-input" id="app-add-input" placeholder="e.g. Storm Chaser">
+        <button class="btn btn-primary btn-sm" onclick="addApp()">Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Expense Categories</div>
+      </div>
+      <div class="setting-desc">Categories for tagging expenses. Used for tax-time summaries.</div>
+      <div class="list-editor" id="cats-editor"></div>
+      <div class="list-add">
+        <input type="text" class="form-input" id="cat-add-input" placeholder="e.g. Marketing">
+        <button class="btn btn-primary btn-sm" onclick="addCat()">Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Data Management</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-title">📊 Export to Excel</div>
+        <div class="setting-desc">Generate a fully-formatted .xlsx workbook with Dashboard, Revenue, Expenses, and Recurring tabs. Tap this anytime to get a tax-ready snapshot of all your data. Perfect for handing to an accountant or storing in Google Drive.</div>
+        <button class="btn btn-primary btn-sm" onclick="exportExcel()">↓ Download Excel snapshot</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-title">Backup everything (JSON)</div>
+        <div class="setting-desc">Save a full JSON snapshot of all your data including settings. Use this to restore your app on another device.</div>
+        <button class="btn btn-ghost btn-sm" onclick="exportBackup()">↓ Download JSON backup</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-title">Restore from backup</div>
+        <div class="setting-desc">Replaces all current data with the contents of a previously saved JSON file.</div>
+        <input type="file" id="restore-input" accept=".json" style="display:none" onchange="importBackup(event)">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('restore-input').click()">↑ Upload JSON backup</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-title">Reset all data</div>
+        <div class="setting-desc">Wipes every revenue, expense, and recurring entry. Apps and categories survive. Use with caution.</div>
+        <button class="btn btn-danger btn-sm" onclick="confirmReset()">✕ Reset data</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">About</div>
+      </div>
+      <div class="setting-desc" style="font-size:12.5px;line-height:1.65">
+        Tyriah App Studios · Studio Ops v1.0<br>
+        Built April 2026 · localStorage persistence<br>
+        Single-file PWA · Runs offline<br>
+        <br>
+        <span class="mono" style="font-size:11px;color:var(--muted)">This is an internal tool for Ty McKinney. Data never leaves your device unless you export it.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ TOAST ═══════════ -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════ MODAL ═══════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalIfBg(event)">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+/* ═════════════════════════════════════════════════════════════
+   TYRIAH STUDIO OPS — APPLICATION LOGIC
+   ═════════════════════════════════════════════════════════════ */
+
+// ── STATE ──
+const DEFAULT_APPS = ['Crafty Planner', 'TT Weather', 'Storm Chaser', 'Studio / Shared'];
+const DEFAULT_CATS = ['Domain', 'API / AI', 'Software', 'Platform Fees', 'Infrastructure', 'Design / Assets', 'Marketing', 'Legal / Accounting', 'Education / Books', 'Hardware', 'Office Supplies', 'Travel', 'Other'];
+const REV_SOURCES = ['Google Play Subscription', 'Google Play One-Time', 'Web / Stripe', 'Other'];
+
+let S = {
+  revenue: [],
+  expenses: [],
+  recurring: [],
+  apps: [...DEFAULT_APPS],
+  cats: [...DEFAULT_CATS],
+  apiWorkerUrl: '',
+  filters: { revApp: 'all', expApp: 'all', expCat: 'all' }
+};
+
+const K = 'tyriahStudioOps';
+
+function save() { localStorage.setItem(K, JSON.stringify(S)); }
+function load() {
+  try {
+    const raw = localStorage.getItem(K);
+    if (raw) {
+      const loaded = JSON.parse(raw);
+      S = { ...S, ...loaded };
+      // Ensure arrays exist even if load corrupted
+      if (!Array.isArray(S.revenue)) S.revenue = [];
+      if (!Array.isArray(S.expenses)) S.expenses = [];
+      if (!Array.isArray(S.recurring)) S.recurring = [];
+      if (!Array.isArray(S.apps) || !S.apps.length) S.apps = [...DEFAULT_APPS];
+      if (!Array.isArray(S.cats) || !S.cats.length) S.cats = [...DEFAULT_CATS];
+      if (!S.filters) S.filters = { revApp: 'all', expApp: 'all', expCat: 'all' };
+    }
+  } catch (e) { console.warn('load failed', e); }
+}
+
+// ── HELPERS ──
+const uid = () => Math.random().toString(36).slice(2, 10);
+const fmt$ = n => {
+  const v = Number(n) || 0;
+  return v < 0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`;
+};
+const fmt$0 = n => {
+  const v = Number(n) || 0;
+  return v < 0 ? `-$${Math.abs(v).toFixed(0)}` : `$${v.toFixed(0)}`;
+};
+const esc = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const today = () => new Date().toISOString().slice(0, 10);
+const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
+const currentYear = () => new Date().getFullYear();
+const isThisYear = dateStr => dateStr && dateStr.startsWith(String(currentYear()));
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('active', p.id === `pane-${name}`));
+  renderAll();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+document.getElementById('tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.tab');
+  if (btn) switchTab(btn.dataset.tab);
+});
+
+// ── MODAL ──
+function openModal(html) {
+  document.getElementById('modal').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+function closeModalIfBg(e) {
+  if (e.target.id === 'modal-overlay') closeModal();
+}
+
+// ═════════════════════════════════════════════════════════════
+// REVENUE
+// ═════════════════════════════════════════════════════════════
+
+function openRevenueForm(existing) {
+  const r = existing || { id: uid(), date: today(), source: 'Google Play Subscription', app: S.apps[0], gross: '', feePercent: 0.15, subscribers: '', notes: '' };
+  const title = existing ? 'Edit Revenue' : 'Log Revenue';
+  const appOpts = S.apps.map(a => `<option value="${esc(a)}"${a === r.app ? ' selected' : ''}>${esc(a)}</option>`).join('');
+  const sourceOpts = REV_SOURCES.map(s => `<option value="${esc(s)}"${s === r.source ? ' selected' : ''}>${esc(s)}</option>`).join('');
+
+  openModal(`
+    <div class="modal-hd">
+      <div class="modal-title">${title}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Date</label>
+        <input type="date" class="form-input" id="r-date" value="${r.date}">
+      </div>
+      <div>
+        <label class="form-lbl">App</label>
+        <select class="form-select" id="r-app">${appOpts}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-lbl">Source</label>
+      <select class="form-select" id="r-source">${sourceOpts}</select>
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Gross ($)</label>
+        <input type="number" class="form-input" id="r-gross" step="0.01" min="0" value="${r.gross}" placeholder="0.00">
+      </div>
+      <div>
+        <label class="form-lbl">Platform Fee %</label>
+        <input type="number" class="form-input" id="r-fee" step="0.01" min="0" max="1" value="${r.feePercent}" placeholder="0.15">
+        <div class="form-helper">Google takes 0.15 for most subs</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-lbl">Subscribers Count (optional)</label>
+      <input type="number" class="form-input" id="r-subs" min="0" value="${r.subscribers}" placeholder="Track growth over time">
+    </div>
+    <div class="form-row">
+      <label class="form-lbl">Notes</label>
+      <textarea class="form-textarea" id="r-notes">${esc(r.notes)}</textarea>
+    </div>
+    <div class="form-actions">
+      ${existing ? `<button class="btn btn-danger" onclick="deleteRevenue('${r.id}')">Delete</button>` : `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`}
+      <button class="btn btn-primary" onclick="saveRevenue('${r.id}',${!!existing})">Save</button>
+    </div>
+  `);
+}
+
+function saveRevenue(id, isEdit) {
+  const entry = {
+    id,
+    date: document.getElementById('r-date').value || today(),
+    source: document.getElementById('r-source').value,
+    app: document.getElementById('r-app').value,
+    gross: Number(document.getElementById('r-gross').value) || 0,
+    feePercent: Number(document.getElementById('r-fee').value) || 0,
+    subscribers: Number(document.getElementById('r-subs').value) || 0,
+    notes: document.getElementById('r-notes').value || ''
+  };
+  entry.fee = entry.gross * entry.feePercent;
+  entry.net = entry.gross - entry.fee;
+
+  if (isEdit) {
+    const i = S.revenue.findIndex(x => x.id === id);
+    if (i >= 0) S.revenue[i] = entry;
+  } else {
+    S.revenue.push(entry);
+  }
+  save(); closeModal(); renderAll();
+  toast(isEdit ? 'Revenue updated' : 'Revenue logged');
+}
+
+function deleteRevenue(id) {
+  if (!confirm('Delete this revenue entry?')) return;
+  S.revenue = S.revenue.filter(r => r.id !== id);
+  save(); closeModal(); renderAll();
+  toast('Revenue deleted');
+}
+
+function renderRevenue() {
+  const list = document.getElementById('rev-list');
+  const filters = document.getElementById('rev-filters');
+  const filter = S.filters.revApp || 'all';
+
+  // Filter chips
+  filters.innerHTML = ['all', ...S.apps].map(a =>
+    `<button class="filter-chip ${a === filter ? 'active' : ''}" onclick="setFilter('revApp','${esc(a)}')">${a === 'all' ? 'All Apps' : esc(a)}</button>`
+  ).join('');
+
+  const sorted = [...S.revenue].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const filtered = filter === 'all' ? sorted : sorted.filter(r => r.app === filter);
+
+  document.getElementById('rev-count').textContent = `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}`;
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">↑</div><div>No revenue logged yet.<br>Tap "+ Log Revenue" to add your first entry.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => `
+    <div class="row" onclick="openRevenueForm(${JSON.stringify(r).replace(/"/g,'&quot;')})" style="cursor:pointer">
+      <div class="row-main">
+        <div class="row-title">${esc(r.source)}</div>
+        <div class="row-meta">
+          <span>${fmtDate(r.date)}</span>
+          <span class="row-tag app">${esc(r.app)}</span>
+          ${r.feePercent > 0 ? `<span class="row-tag">${Math.round(r.feePercent*100)}% fee</span>` : ''}
+          ${r.subscribers > 0 ? `<span class="row-tag">${r.subscribers} subs</span>` : ''}
+        </div>
+      </div>
+      <div class="row-amount green">+${fmt$(r.net || 0)}</div>
+    </div>
+  `).join('');
+}
+
+// ═════════════════════════════════════════════════════════════
+// EXPENSES
+// ═════════════════════════════════════════════════════════════
+
+function openExpenseForm(existing) {
+  const e = existing || { id: uid(), date: today(), category: S.cats[0], vendor: '', app: S.apps[S.apps.length-1] || 'Studio / Shared', amount: '', deductible: true, recurring: false, notes: '' };
+  const title = existing ? 'Edit Expense' : 'Log Expense';
+  const appOpts = S.apps.map(a => `<option value="${esc(a)}"${a === e.app ? ' selected' : ''}>${esc(a)}</option>`).join('');
+  const catOpts = S.cats.map(c => `<option value="${esc(c)}"${c === e.category ? ' selected' : ''}>${esc(c)}</option>`).join('');
+
+  openModal(`
+    <div class="modal-hd">
+      <div class="modal-title">${title}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Date</label>
+        <input type="date" class="form-input" id="e-date" value="${e.date}">
+      </div>
+      <div>
+        <label class="form-lbl">Amount ($)</label>
+        <input type="number" class="form-input" id="e-amount" step="0.01" min="0" value="${e.amount}" placeholder="0.00">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-lbl">Vendor / What</label>
+      <input type="text" class="form-input" id="e-vendor" value="${esc(e.vendor)}" placeholder="e.g. Google Domains, Anthropic">
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Category</label>
+        <select class="form-select" id="e-cat">${catOpts}</select>
+      </div>
+      <div>
+        <label class="form-lbl">App</label>
+        <select class="form-select" id="e-app">${appOpts}</select>
+      </div>
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Deductible?</label>
+        <select class="form-select" id="e-ded">
+          <option value="true"${e.deductible ? ' selected' : ''}>Yes</option>
+          <option value="false"${!e.deductible ? ' selected' : ''}>No</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-lbl">Recurring?</label>
+        <select class="form-select" id="e-rec">
+          <option value="false"${!e.recurring ? ' selected' : ''}>No</option>
+          <option value="true"${e.recurring ? ' selected' : ''}>Yes</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-lbl">Notes</label>
+      <textarea class="form-textarea" id="e-notes">${esc(e.notes)}</textarea>
+    </div>
+    <div class="form-actions">
+      ${existing ? `<button class="btn btn-danger" onclick="deleteExpense('${e.id}')">Delete</button>` : `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`}
+      <button class="btn btn-primary" onclick="saveExpense('${e.id}',${!!existing})">Save</button>
+    </div>
+  `);
+}
+
+function saveExpense(id, isEdit) {
+  const entry = {
+    id,
+    date: document.getElementById('e-date').value || today(),
+    category: document.getElementById('e-cat').value,
+    vendor: document.getElementById('e-vendor').value,
+    app: document.getElementById('e-app').value,
+    amount: Number(document.getElementById('e-amount').value) || 0,
+    deductible: document.getElementById('e-ded').value === 'true',
+    recurring: document.getElementById('e-rec').value === 'true',
+    notes: document.getElementById('e-notes').value || ''
+  };
+
+  if (isEdit) {
+    const i = S.expenses.findIndex(x => x.id === id);
+    if (i >= 0) S.expenses[i] = entry;
+  } else {
+    S.expenses.push(entry);
+  }
+  save(); closeModal(); renderAll();
+  toast(isEdit ? 'Expense updated' : 'Expense logged');
+}
+
+function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+  S.expenses = S.expenses.filter(e => e.id !== id);
+  save(); closeModal(); renderAll();
+  toast('Expense deleted');
+}
+
+function renderExpenses() {
+  const list = document.getElementById('exp-list');
+  const filters = document.getElementById('exp-filters');
+  const filter = S.filters.expApp || 'all';
+
+  filters.innerHTML = ['all', ...S.apps].map(a =>
+    `<button class="filter-chip ${a === filter ? 'active' : ''}" onclick="setFilter('expApp','${esc(a)}')">${a === 'all' ? 'All Apps' : esc(a)}</button>`
+  ).join('');
+
+  const sorted = [...S.expenses].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const filtered = filter === 'all' ? sorted : sorted.filter(e => e.app === filter);
+
+  document.getElementById('exp-count').textContent = `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}`;
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">↓</div><div>No expenses logged yet.<br>Tap "+ Log Expense" to start tracking.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(e => `
+    <div class="row" onclick="openExpenseForm(${JSON.stringify(e).replace(/"/g,'&quot;')})" style="cursor:pointer">
+      <div class="row-main">
+        <div class="row-title">${esc(e.vendor || e.category)}</div>
+        <div class="row-meta">
+          <span>${fmtDate(e.date)}</span>
+          <span class="row-tag app">${esc(e.app)}</span>
+          <span class="row-tag">${esc(e.category)}</span>
+          ${e.recurring ? '<span class="row-tag">recurring</span>' : ''}
+        </div>
+      </div>
+      <div class="row-amount red">-${fmt$(e.amount || 0)}</div>
+    </div>
+  `).join('');
+}
+
+function setFilter(key, val) {
+  S.filters[key] = val;
+  save();
+  renderAll();
+}
+
+// ═════════════════════════════════════════════════════════════
+// RECURRING
+// ═════════════════════════════════════════════════════════════
+
+const FREQS = ['Monthly', 'Quarterly', 'Annual', 'One-time'];
+const STATUSES = ['Active', 'Paused', 'Cancelled'];
+
+function annualize(cost, freq) {
+  const c = Number(cost) || 0;
+  if (freq === 'Monthly') return c * 12;
+  if (freq === 'Quarterly') return c * 4;
+  return c; // Annual and One-time
+}
+
+function openRecurringForm(existing) {
+  const r = existing || { id: uid(), service: '', category: S.cats[0], frequency: 'Monthly', cost: '', status: 'Active', app: 'Studio / Shared', nextRenewal: '', notes: '' };
+  const title = existing ? 'Edit Subscription' : 'Add Subscription';
+  const appOpts = S.apps.map(a => `<option value="${esc(a)}"${a === r.app ? ' selected' : ''}>${esc(a)}</option>`).join('');
+  const catOpts = S.cats.map(c => `<option value="${esc(c)}"${c === r.category ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  const freqOpts = FREQS.map(f => `<option value="${f}"${f === r.frequency ? ' selected' : ''}>${f}</option>`).join('');
+  const statusOpts = STATUSES.map(s => `<option value="${s}"${s === r.status ? ' selected' : ''}>${s}</option>`).join('');
+
+  openModal(`
+    <div class="modal-hd">
+      <div class="modal-title">${title}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-row">
+      <label class="form-lbl">Service</label>
+      <input type="text" class="form-input" id="s-service" value="${esc(r.service)}" placeholder="e.g. Claude Pro, craftyplanner.app domain">
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Cost / Period</label>
+        <input type="number" class="form-input" id="s-cost" step="0.01" min="0" value="${r.cost}" placeholder="0.00">
+      </div>
+      <div>
+        <label class="form-lbl">Frequency</label>
+        <select class="form-select" id="s-freq">${freqOpts}</select>
+      </div>
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Category</label>
+        <select class="form-select" id="s-cat">${catOpts}</select>
+      </div>
+      <div>
+        <label class="form-lbl">App</label>
+        <select class="form-select" id="s-app">${appOpts}</select>
+      </div>
+    </div>
+    <div class="form-row double">
+      <div>
+        <label class="form-lbl">Status</label>
+        <select class="form-select" id="s-status">${statusOpts}</select>
+      </div>
+      <div>
+        <label class="form-lbl">Next Renewal</label>
+        <input type="date" class="form-input" id="s-renew" value="${r.nextRenewal || ''}">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-lbl">Notes</label>
+      <textarea class="form-textarea" id="s-notes">${esc(r.notes)}</textarea>
+    </div>
+    <div class="form-actions">
+      ${existing ? `<button class="btn btn-danger" onclick="deleteRecurring('${r.id}')">Delete</button>` : `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`}
+      <button class="btn btn-primary" onclick="saveRecurring('${r.id}',${!!existing})">Save</button>
+    </div>
+  `);
+}
+
+function saveRecurring(id, isEdit) {
+  const entry = {
+    id,
+    service: document.getElementById('s-service').value,
+    category: document.getElementById('s-cat').value,
+    frequency: document.getElementById('s-freq').value,
+    cost: Number(document.getElementById('s-cost').value) || 0,
+    status: document.getElementById('s-status').value,
+    app: document.getElementById('s-app').value,
+    nextRenewal: document.getElementById('s-renew').value || '',
+    notes: document.getElementById('s-notes').value || ''
+  };
+  entry.annualCost = annualize(entry.cost, entry.frequency);
+
+  if (isEdit) {
+    const i = S.recurring.findIndex(x => x.id === id);
+    if (i >= 0) S.recurring[i] = entry;
+  } else {
+    S.recurring.push(entry);
+  }
+  save(); closeModal(); renderAll();
+  toast(isEdit ? 'Subscription updated' : 'Subscription added');
+}
+
+function deleteRecurring(id) {
+  if (!confirm('Delete this subscription?')) return;
+  S.recurring = S.recurring.filter(r => r.id !== id);
+  save(); closeModal(); renderAll();
+  toast('Subscription deleted');
+}
+
+function renderRecurring() {
+  const list = document.getElementById('rec-list');
+  const sorted = [...S.recurring].sort((a, b) => (b.annualCost || 0) - (a.annualCost || 0));
+
+  document.getElementById('rec-count').textContent = `${sorted.length} entr${sorted.length === 1 ? 'y' : 'ies'}`;
+
+  const activeAnnual = S.recurring.filter(r => r.status === 'Active').reduce((s, r) => s + (r.annualCost || 0), 0);
+  document.getElementById('rec-annual').textContent = fmt$0(activeAnnual);
+  document.getElementById('rec-monthly').textContent = fmt$0(activeAnnual / 12);
+
+  if (!sorted.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">↻</div><div>No subscriptions tracked yet.<br>Add domains, API credits, dev tools here.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = sorted.map(r => {
+    const statusColor = r.status === 'Active' ? 'var(--green)' : r.status === 'Paused' ? 'var(--amber)' : 'var(--muted)';
+    return `
+    <div class="row" onclick="openRecurringForm(${JSON.stringify(r).replace(/"/g,'&quot;')})" style="cursor:pointer">
+      <div class="row-main">
+        <div class="row-title">${esc(r.service)}</div>
+        <div class="row-meta">
+          <span style="color:${statusColor}">● ${esc(r.status)}</span>
+          <span class="row-tag app">${esc(r.app)}</span>
+          <span class="row-tag">${esc(r.frequency)}</span>
+          ${r.nextRenewal ? `<span>renews ${fmtDate(r.nextRenewal)}</span>` : ''}
+        </div>
+      </div>
+      <div class="row-amount" style="color:var(--amber)">${fmt$(r.cost)}<div style="font-size:10px;font-weight:400;color:var(--text3);margin-top:2px">${fmt$0(r.annualCost)}/yr</div></div>
+    </div>
+    `;
+  }).join('');
+}
+
+// ═════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═════════════════════════════════════════════════════════════
+
+function renderDashboard() {
+  const year = currentYear();
+  document.getElementById('chart-year-label').textContent = String(year);
+  document.getElementById('hdr-date').textContent = new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+
+  // YTD totals
+  const ytdRev = S.revenue.filter(r => isThisYear(r.date)).reduce((s, r) => s + (r.net || 0), 0);
+  const ytdExp = S.expenses.filter(e => isThisYear(e.date)).reduce((s, e) => s + (e.amount || 0), 0);
+  const net = ytdRev - ytdExp;
+  const activeRecurring = S.recurring.filter(r => r.status === 'Active').reduce((s, r) => s + (r.annualCost || 0), 0);
+
+  document.getElementById('kpi-revenue').textContent = fmt$0(ytdRev);
+  document.getElementById('kpi-expenses').textContent = fmt$0(ytdExp);
+  const netEl = document.getElementById('kpi-net');
+  netEl.textContent = fmt$0(net);
+  netEl.className = 'kpi-value ' + (net >= 0 ? 'green' : 'red');
+  document.getElementById('kpi-recurring').textContent = fmt$0(activeRecurring);
+
+  const ytdRevCount = S.revenue.filter(r => isThisYear(r.date)).length;
+  const ytdExpCount = S.expenses.filter(e => isThisYear(e.date)).length;
+  const margin = ytdRev > 0 ? ((net / ytdRev) * 100).toFixed(1) : '0';
+  document.getElementById('kpi-revenue-sub').textContent = `${ytdRevCount} entries`;
+  document.getElementById('kpi-expenses-sub').textContent = `${ytdExpCount} entries`;
+  document.getElementById('kpi-net-sub').textContent = `${margin}% margin`;
+  document.getElementById('kpi-recurring-sub').textContent = `${fmt$0(activeRecurring/12)}/mo run-rate`;
+
+  renderRevenueByAppChart();
+  renderMonthlyBars(year);
+  renderPerAppTable(year);
+}
+
+function renderRevenueByAppChart() {
+  const wrap = document.getElementById('chart-revenue-by-app');
+  const byApp = {};
+  S.revenue.filter(r => isThisYear(r.date)).forEach(r => {
+    byApp[r.app] = (byApp[r.app] || 0) + (r.net || 0);
+  });
+  const entries = Object.entries(byApp).filter(([,v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((s, [,v]) => s + v, 0);
+
+  if (!total) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">○</div><div>No revenue logged this year yet.</div></div>`;
+    return;
+  }
+
+  // SVG donut
+  const SIZE = 200, CX = 100, CY = 100, R = 72, SW = 28;
+  const COLORS = ['#7c3aed', '#a855f7', '#c084fc', '#ddd6fe', '#4ade80', '#fbbf24'];
+  let cum = 0;
+  const circ = 2 * Math.PI * R;
+  const segments = entries.map(([app, val], i) => {
+    const frac = val / total;
+    const dash = circ * frac;
+    const gap = circ - dash;
+    const offset = -cum * circ;
+    cum += frac;
+    return {
+      app, val, frac,
+      color: COLORS[i % COLORS.length],
+      dash, gap, offset
+    };
+  });
+
+  const svgSegments = segments.map(s =>
+    `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${s.color}" stroke-width="${SW}"
+      stroke-dasharray="${s.dash} ${s.gap}"
+      stroke-dashoffset="${s.offset}"
+      transform="rotate(-90 ${CX} ${CY})" />`
+  ).join('');
+
+  const legend = segments.map(s =>
+    `<div class="legend-item">
+      <span class="legend-dot" style="background:${s.color}"></span>
+      <span>${esc(s.app)} · ${(s.frac*100).toFixed(1)}%</span>
+    </div>`
+  ).join('');
+
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:center">
+      <svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">
+        ${svgSegments}
+        <text x="${CX}" y="${CY-4}" text-anchor="middle" font-family="Playfair Display" font-size="20" font-weight="700" fill="#f3f0ff">${fmt$0(total)}</text>
+        <text x="${CX}" y="${CY+14}" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#8b7aad" letter-spacing="1.5">YTD NET</text>
+      </svg>
+    </div>
+    <div class="chart-legend">${legend}</div>
+  `;
+}
+
+function renderMonthlyBars(year) {
+  const wrap = document.getElementById('chart-monthly');
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthly = MONTHS.map((m, i) => {
+    const prefix = `${year}-${String(i+1).padStart(2,'0')}`;
+    const rev = S.revenue.filter(r => r.date?.startsWith(prefix)).reduce((s, r) => s + (r.net || 0), 0);
+    const exp = S.expenses.filter(e => e.date?.startsWith(prefix)).reduce((s, e) => s + (e.amount || 0), 0);
+    return { month: m, rev, exp, net: rev - exp };
+  });
+
+  const maxVal = Math.max(1, ...monthly.map(m => Math.max(Math.abs(m.net), m.rev, m.exp)));
+
+  wrap.innerHTML = monthly.map(m => {
+    const widthPct = Math.abs(m.net) / maxVal * 100;
+    const negative = m.net < 0;
+    return `
+      <div class="bar-row">
+        <div class="bar-label">${m.month}</div>
+        <div class="bar-track">
+          ${m.net !== 0 ? `<div class="bar-fill ${negative ? 'net-neg' : ''}" style="width:${widthPct}%"></div>` : ''}
+        </div>
+        <div class="bar-val" style="color:${negative ? 'var(--red)' : m.net > 0 ? 'var(--green)' : 'var(--muted)'}">${m.net === 0 ? '—' : fmt$0(m.net)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderPerAppTable(year) {
+  const wrap = document.getElementById('per-app-table');
+  const appStats = S.apps.map(app => {
+    const rev = S.revenue.filter(r => r.app === app && isThisYear(r.date)).reduce((s, r) => s + (r.net || 0), 0);
+    const exp = S.expenses.filter(e => e.app === app && isThisYear(e.date)).reduce((s, e) => s + (e.amount || 0), 0);
+    return { app, rev, exp, net: rev - exp };
+  });
+  wrap.innerHTML = appStats.map(a => `
+    <div class="row">
+      <div class="row-main">
+        <div class="row-title">${esc(a.app)}</div>
+        <div class="row-meta">
+          <span style="color:var(--green)">+${fmt$0(a.rev)}</span>
+          <span style="color:var(--red)">-${fmt$0(a.exp)}</span>
+        </div>
+      </div>
+      <div class="row-amount" style="color:${a.net >= 0 ? 'var(--green)' : 'var(--red)'}">${a.net >= 0 ? '+' : ''}${fmt$0(a.net)}</div>
+    </div>
+  `).join('');
+}
+
+// ═════════════════════════════════════════════════════════════
+// CLAUDE API
+// ═════════════════════════════════════════════════════════════
+
+async function refreshApiUsage() {
+  const url = S.apiWorkerUrl;
+  const statusBox = document.getElementById('api-status');
+  const statusMsg = document.getElementById('api-status-msg');
+  const display = document.getElementById('api-usage-display');
+  const liveLabel = document.getElementById('api-live-label');
+
+  if (!url) {
+    statusBox.className = 'api-status not-configured';
+    statusMsg.textContent = 'Not connected. Configure your Worker URL below to pull live token usage.';
+    display.innerHTML = `<div class="empty"><div class="empty-icon">◆</div><div>Configure Worker URL to see live data</div></div>`;
+    liveLabel.textContent = '—';
+    return;
+  }
+
+  statusBox.className = 'api-status';
+  statusMsg.textContent = 'Fetching latest data from your Worker...';
+  display.innerHTML = `<div class="empty"><div class="empty-icon">⟳</div><div>Loading...</div></div>`;
+
+  try {
+    const res = await fetch(url, { method: 'GET', cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+
+    statusBox.className = 'api-status connected';
+    statusMsg.textContent = `Connected. Last refresh: ${new Date().toLocaleTimeString()}`;
+    liveLabel.textContent = d.date || 'TODAY';
+
+    display.innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Today's Cost</div>
+          <div class="kpi-value" style="color:var(--primary)">${fmt$((d.cost_usd || 0).toFixed(4))}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Month to Date</div>
+          <div class="kpi-value amber">${fmt$0(d.month_cost_usd || 0)}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Tokens In</div>
+          <div class="kpi-value" style="font-size:20px">${(d.tokens_in || 0).toLocaleString()}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Tokens Out</div>
+          <div class="kpi-value" style="font-size:20px">${(d.tokens_out || 0).toLocaleString()}</div>
+        </div>
+      </div>
+      ${d.credits_remaining_usd != null ? `
+        <div class="card" style="margin-top:14px;margin-bottom:0">
+          <div class="card-hd"><div class="card-title" style="font-size:14px">Credits Remaining</div></div>
+          <div style="font-family:var(--serif);font-size:28px;color:var(--green);font-weight:700">${fmt$(d.credits_remaining_usd)}</div>
+        </div>
+      ` : ''}
+    `;
+  } catch (err) {
+    statusBox.className = 'api-status';
+    statusBox.style.borderColor = 'var(--red)';
+    statusMsg.innerHTML = `<span style="color:var(--red)">Error:</span> ${esc(err.message)}. Check your Worker URL and that it's returning the expected JSON shape.`;
+    display.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>Could not fetch usage data</div></div>`;
+  }
+}
+
+function saveWorkerUrl() {
+  const url = document.getElementById('api-worker-url').value.trim();
+  S.apiWorkerUrl = url;
+  save();
+  toast(url ? 'Worker URL saved' : 'Worker URL cleared');
+  refreshApiUsage();
+}
+
+function renderApi() {
+  document.getElementById('api-worker-url').value = S.apiWorkerUrl || '';
+  refreshApiUsage();
+}
+
+// ═════════════════════════════════════════════════════════════
+// SETTINGS
+// ═════════════════════════════════════════════════════════════
+
+function renderSettings() {
+  const appsEd = document.getElementById('apps-editor');
+  appsEd.innerHTML = S.apps.map((a, i) => `
+    <div class="list-item">
+      <span>${esc(a)}</span>
+      <button class="btn-icon" onclick="removeApp(${i})" title="Remove">✕</button>
+    </div>
+  `).join('') || `<div class="muted mono" style="font-size:11px">No apps yet</div>`;
+
+  const catsEd = document.getElementById('cats-editor');
+  catsEd.innerHTML = S.cats.map((c, i) => `
+    <div class="list-item">
+      <span>${esc(c)}</span>
+      <button class="btn-icon" onclick="removeCat(${i})" title="Remove">✕</button>
+    </div>
+  `).join('') || `<div class="muted mono" style="font-size:11px">No categories yet</div>`;
+}
+
+function addApp() {
+  const inp = document.getElementById('app-add-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (S.apps.includes(v)) { toast('Already exists'); return; }
+  S.apps.push(v);
+  save(); inp.value = ''; renderSettings();
+  toast('App added');
+}
+
+function removeApp(i) {
+  if (!confirm(`Remove "${S.apps[i]}"?\n\nExisting entries tagged with this app will keep their tag — you can still filter but the app won't appear in new-entry dropdowns.`)) return;
+  S.apps.splice(i, 1);
+  save(); renderSettings();
+  toast('App removed');
+}
+
+function addCat() {
+  const inp = document.getElementById('cat-add-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (S.cats.includes(v)) { toast('Already exists'); return; }
+  S.cats.push(v);
+  save(); inp.value = ''; renderSettings();
+  toast('Category added');
+}
+
+function removeCat(i) {
+  if (!confirm(`Remove "${S.cats[i]}"?`)) return;
+  S.cats.splice(i, 1);
+  save(); renderSettings();
+  toast('Category removed');
+}
+
+// ═════════════════════════════════════════════════════════════
+// IMPORT / EXPORT
+// ═════════════════════════════════════════════════════════════
+
+function exportCSV(type) {
+  let csv = '', fn = '';
+  if (type === 'revenue') {
+    csv = 'Date,Source,App,Gross,Platform %,Platform Fee,Net,Subscribers,Notes\n';
+    [...S.revenue].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(r => {
+      csv += `${r.date},"${(r.source||'').replace(/"/g,'""')}","${(r.app||'').replace(/"/g,'""')}",${r.gross||0},${r.feePercent||0},${(r.fee||0).toFixed(2)},${(r.net||0).toFixed(2)},${r.subscribers||0},"${(r.notes||'').replace(/"/g,'""')}"\n`;
+    });
+    fn = 'studio-ops-revenue.csv';
+  } else if (type === 'expenses') {
+    csv = 'Date,Category,Vendor,App,Amount,Deductible,Recurring,Notes\n';
+    [...S.expenses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(e => {
+      csv += `${e.date},"${(e.category||'').replace(/"/g,'""')}","${(e.vendor||'').replace(/"/g,'""')}","${(e.app||'').replace(/"/g,'""')}",${e.amount||0},${e.deductible?'Yes':'No'},${e.recurring?'Yes':'No'},"${(e.notes||'').replace(/"/g,'""')}"\n`;
+    });
+    fn = 'studio-ops-expenses.csv';
+  }
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fn; a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded');
+}
+
+function exportExcel() {
+  if (!window.XLSX) {
+    toast('Excel library still loading — try again in a moment');
+    return;
+  }
+
+  const year = currentYear();
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const wb = XLSX.utils.book_new();
+
+  // ═══════════════ DASHBOARD TAB ═══════════════
+  const ytdRev = S.revenue.filter(r => isThisYear(r.date)).reduce((s, r) => s + (r.net || 0), 0);
+  const ytdExp = S.expenses.filter(e => isThisYear(e.date)).reduce((s, e) => s + (e.amount || 0), 0);
+  const netProfit = ytdRev - ytdExp;
+  const activeRecurring = S.recurring.filter(r => r.status === 'Active').reduce((s, r) => s + (r.annualCost || 0), 0);
+
+  const dashRows = [
+    ['TYRIAH APP STUDIOS', ''],
+    ['Studio P&L Snapshot', ''],
+    [`Generated ${new Date().toLocaleString()}`, ''],
+    [`Fiscal year: ${year}`, ''],
+    [],
+    ['KEY METRICS (YTD)', ''],
+    ['YTD Revenue (net)', ytdRev],
+    ['YTD Expenses', ytdExp],
+    ['Net Profit', netProfit],
+    ['Profit Margin', ytdRev > 0 ? netProfit / ytdRev : 0],
+    ['Annual Recurring Cost', activeRecurring],
+    ['Monthly Run-Rate', activeRecurring / 12],
+    [],
+    ['MONTHLY BREAKDOWN', '', '', '', ''],
+    ['Month', 'Revenue', 'Expenses', 'Net', '# Entries']
+  ];
+
+  MONTHS.forEach((m, i) => {
+    const prefix = `${year}-${String(i+1).padStart(2,'0')}`;
+    const mRev = S.revenue.filter(r => r.date?.startsWith(prefix)).reduce((s, r) => s + (r.net || 0), 0);
+    const mExp = S.expenses.filter(e => e.date?.startsWith(prefix)).reduce((s, e) => s + (e.amount || 0), 0);
+    const mCount = S.revenue.filter(r => r.date?.startsWith(prefix)).length +
+                   S.expenses.filter(e => e.date?.startsWith(prefix)).length;
+    dashRows.push([m, mRev, mExp, mRev - mExp, mCount]);
+  });
+  dashRows.push(['YEAR TOTAL', ytdRev, ytdExp, netProfit, S.revenue.filter(r=>isThisYear(r.date)).length + S.expenses.filter(e=>isThisYear(e.date)).length]);
+  dashRows.push([]);
+  dashRows.push(['PER-APP BREAKDOWN (YTD)', '', '', '', '']);
+  dashRows.push(['App', 'Revenue', 'Expenses', 'Net', 'Margin %']);
+  S.apps.forEach(app => {
+    const rev = S.revenue.filter(r => r.app === app && isThisYear(r.date)).reduce((s, r) => s + (r.net || 0), 0);
+    const exp = S.expenses.filter(e => e.app === app && isThisYear(e.date)).reduce((s, e) => s + (e.amount || 0), 0);
+    const net = rev - exp;
+    const margin = rev > 0 ? net / rev : 0;
+    dashRows.push([app, rev, exp, net, margin]);
+  });
+
+  const wsDash = XLSX.utils.aoa_to_sheet(dashRows);
+  wsDash['!cols'] = [{ wch: 28 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 13 }];
+  // Format currency columns — SheetJS applies number formats via cell.z
+  const formatCurrency = (rowIdx, colIdx) => {
+    const addr = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
+    if (wsDash[addr] && typeof wsDash[addr].v === 'number') {
+      wsDash[addr].z = '"$"#,##0.00';
+    }
+  };
+  // KPI rows (6-11, 0-indexed) in col B
+  for (let r = 6; r <= 11; r++) formatCurrency(r, 1);
+  // Profit margin % formatting
+  if (wsDash[XLSX.utils.encode_cell({ r: 9, c: 1 })]) wsDash[XLSX.utils.encode_cell({ r: 9, c: 1 })].z = '0.00%';
+  // Monthly breakdown cols B-D (currency) from row 15 down
+  for (let r = 15; r <= 27; r++) {
+    formatCurrency(r, 1); formatCurrency(r, 2); formatCurrency(r, 3);
+  }
+  // Per-app breakdown cols B-D currency, E %
+  const perAppStartRow = 30;
+  for (let r = perAppStartRow; r < perAppStartRow + S.apps.length; r++) {
+    formatCurrency(r, 1); formatCurrency(r, 2); formatCurrency(r, 3);
+    const marginAddr = XLSX.utils.encode_cell({ r, c: 4 });
+    if (wsDash[marginAddr]) wsDash[marginAddr].z = '0.00%';
+  }
+  XLSX.utils.book_append_sheet(wb, wsDash, 'Dashboard');
+
+  // ═══════════════ REVENUE TAB ═══════════════
+  const revRows = [['Date', 'Month', 'Source', 'App', 'Gross', 'Platform %', 'Platform Fee', 'Net', 'Subscribers', 'Notes']];
+  const sortedRev = [...S.revenue].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  sortedRev.forEach(r => {
+    const d = r.date ? new Date(r.date + 'T00:00:00') : null;
+    const monthLabel = d ? `${MONTHS[d.getMonth()]} ${d.getFullYear()}` : '';
+    revRows.push([
+      r.date || '',
+      monthLabel,
+      r.source || '',
+      r.app || '',
+      Number(r.gross) || 0,
+      Number(r.feePercent) || 0,
+      Number(r.fee) || 0,
+      Number(r.net) || 0,
+      Number(r.subscribers) || 0,
+      r.notes || ''
+    ]);
+  });
+  // Totals row
+  revRows.push([]);
+  revRows.push(['TOTALS', '', '', '', {f: `SUM(E2:E${sortedRev.length+1})`}, '', {f: `SUM(G2:G${sortedRev.length+1})`}, {f: `SUM(H2:H${sortedRev.length+1})`}, '', '']);
+
+  const wsRev = XLSX.utils.aoa_to_sheet(revRows);
+  wsRev['!cols'] = [
+    { wch: 12 }, { wch: 12 }, { wch: 26 }, { wch: 18 },
+    { wch: 11 }, { wch: 11 }, { wch: 13 }, { wch: 11 }, { wch: 11 }, { wch: 40 }
+  ];
+  // Currency formatting on cols E, G, H (indices 4, 6, 7)
+  for (let r = 1; r <= sortedRev.length + 1; r++) {
+    [4, 6, 7].forEach(c => {
+      const a = XLSX.utils.encode_cell({ r, c });
+      if (wsRev[a]) wsRev[a].z = '"$"#,##0.00';
+    });
+    // Percent on col F (index 5)
+    const pa = XLSX.utils.encode_cell({ r, c: 5 });
+    if (wsRev[pa] && typeof wsRev[pa].v === 'number') wsRev[pa].z = '0.00%';
+  }
+  XLSX.utils.book_append_sheet(wb, wsRev, 'Revenue');
+
+  // ═══════════════ EXPENSES TAB ═══════════════
+  const expRows = [['Date', 'Category', 'Vendor', 'App', 'Amount', 'Deductible', 'Recurring', 'Notes']];
+  const sortedExp = [...S.expenses].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  sortedExp.forEach(e => {
+    expRows.push([
+      e.date || '',
+      e.category || '',
+      e.vendor || '',
+      e.app || '',
+      Number(e.amount) || 0,
+      e.deductible ? 'Yes' : 'No',
+      e.recurring ? 'Yes' : 'No',
+      e.notes || ''
+    ]);
+  });
+  expRows.push([]);
+  expRows.push(['TOTAL', '', '', '', {f: `SUM(E2:E${sortedExp.length+1})`}, '', '', '']);
+
+  const wsExp = XLSX.utils.aoa_to_sheet(expRows);
+  wsExp['!cols'] = [
+    { wch: 12 }, { wch: 20 }, { wch: 28 }, { wch: 18 },
+    { wch: 11 }, { wch: 12 }, { wch: 11 }, { wch: 40 }
+  ];
+  // Currency on col E
+  for (let r = 1; r <= sortedExp.length + 1; r++) {
+    const a = XLSX.utils.encode_cell({ r, c: 4 });
+    if (wsExp[a]) wsExp[a].z = '"$"#,##0.00';
+  }
+  XLSX.utils.book_append_sheet(wb, wsExp, 'Expenses');
+
+  // ═══════════════ RECURRING TAB ═══════════════
+  const recRows = [['Service', 'Category', 'Frequency', 'Cost / Period', 'Annual Cost', 'Status', 'App', 'Next Renewal', 'Notes']];
+  const sortedRec = [...S.recurring].sort((a, b) => (b.annualCost || 0) - (a.annualCost || 0));
+  sortedRec.forEach(r => {
+    recRows.push([
+      r.service || '',
+      r.category || '',
+      r.frequency || '',
+      Number(r.cost) || 0,
+      Number(r.annualCost) || 0,
+      r.status || '',
+      r.app || '',
+      r.nextRenewal || '',
+      r.notes || ''
+    ]);
+  });
+  recRows.push([]);
+  recRows.push(['ACTIVE TOTAL', '', '', '', {f: `SUMIF(F2:F${sortedRec.length+1},"Active",E2:E${sortedRec.length+1})`}, '', '', '', '']);
+
+  const wsRec = XLSX.utils.aoa_to_sheet(recRows);
+  wsRec['!cols'] = [
+    { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 13 }, { wch: 13 },
+    { wch: 11 }, { wch: 18 }, { wch: 14 }, { wch: 30 }
+  ];
+  // Currency on cols D and E
+  for (let r = 1; r <= sortedRec.length + 1; r++) {
+    [3, 4].forEach(c => {
+      const a = XLSX.utils.encode_cell({ r, c });
+      if (wsRec[a]) wsRec[a].z = '"$"#,##0.00';
+    });
+  }
+  XLSX.utils.book_append_sheet(wb, wsRec, 'Recurring Costs');
+
+  // ═══════════════ WRITE FILE ═══════════════
+  const fn = `TyriahAppStudios-PL-${today()}.xlsx`;
+  XLSX.writeFile(wb, fn);
+  toast('Excel snapshot downloaded');
+}
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `studio-ops-backup-${today()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup downloaded');
+}
+
+function importBackup(event) {
+  const f = event.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!confirm('This will REPLACE all your current data. Continue?')) return;
+      S = { ...S, ...data };
+      save(); renderAll();
+      toast('Backup restored');
+    } catch (err) {
+      alert('Could not parse backup file: ' + err.message);
+    }
+  };
+  reader.readAsText(f);
+  event.target.value = '';
+}
+
+function confirmReset() {
+  if (!confirm('Delete ALL revenue, expenses, and recurring entries?\n\nApps and categories will be kept. This cannot be undone.')) return;
+  S.revenue = []; S.expenses = []; S.recurring = [];
+  save(); renderAll();
+  toast('Data reset');
+}
+
+// ═════════════════════════════════════════════════════════════
+// MASTER RENDER
+// ═════════════════════════════════════════════════════════════
+
+function renderAll() {
+  renderDashboard();
+  renderRevenue();
+  renderExpenses();
+  renderRecurring();
+  renderSettings();
+  renderApi();
+}
+
+// ═════════════════════════════════════════════════════════════
+// SERVICE WORKER
+// ═════════════════════════════════════════════════════════════
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+  });
+}
+
+// ═════════════════════════════════════════════════════════════
+// INIT
+// ═════════════════════════════════════════════════════════════
+
+load();
+renderAll();
+</script>
+
+</body>
+</html>
